@@ -1,0 +1,8 @@
+# Игнорируем всё по умолчанию
+*
+
+# Но отслеживаем эти файлы и папки:
+!.gitignore
+!README.md
+!webapp/
+!flowers-data.json

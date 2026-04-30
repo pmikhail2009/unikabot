@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Гортензии Unica and Flowers</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="preloader" class="screen-full">
+    <div class="welcome-text" id="welcomeText">Приветствуем, гость!</div>
+  </div>
+
+  <div id="app" class="app hidden">
+    <header class="app-header">
+      <img src="logo.png" alt="Логотип" class="logo" />
+      <div class="title-block">
+        <div class="shop-title">Гортензии Unica and Flowers</div>
+        <div class="shop-username">@unika_flowers</div>
+      </div>
+    </header>
+
+    <main class="cards-container" id="cardsContainer">
+      <!-- Карточки товаров будут добавляться JS -->
+    </main>
+
+    <footer class="footer">
+      <button id="contactButton" class="contact-button">Написать для заказа</button>
+    </footer>
+  </div>
+
+  <div id="modalOverlay" class="modal-overlay hidden">
+    <div class="modal">
+      <button class="modal-close" id="modalClose">✕</button>
+      <div class="modal-content">
+        <img id="modalMainImage" class="modal-main-image" src="" alt="" />
+        <h2 id="modalTitle" class="modal-title"></h2>
+        <p id="modalDescription" class="modal-description"></p>
+        <div id="modalGallery" class="modal-gallery"></div>
+        <a href="https://t.me/unika_flowers" target="_blank" class="modal-contact-link">@unika_flowers</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
