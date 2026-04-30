@@ -44,15 +44,20 @@ contactButton.addEventListener("click", () => {
   }
 });
 
-// Загрузка каталога из catalog.xlsx
+// Загрузка каталога из catalog.xlsx с обходом кеша Telegram
 async function loadCatalog() {
   try {
-    const response = await fetch("catalog.xlsx");
+    // Добавляем ?v=3, чтобы Telegram не использовал старый кеш
+    const response = await fetch("catalog.xlsx?v=3");
     const arrayBuffer = await response.arrayBuffer();
     const data = new Uint8Array(arrayBuffer);
     const workbook = XLSX.read(data, { type: "array" });
     const firstSheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[firstSheetName];
+
+    // Обрезаем пробелы у заголовков: "card_photo " -> "card_photo"
+    trimHeaders(worksheet);
+
     const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
     renderCards(json);
   } catch (e) {
@@ -60,18 +65,39 @@ async function loadCatalog() {
   }
 }
 
+// Функция обрезки пробелов в заголовках (первая строка)
+function trimHeaders(ws) {
+  if (!ws || !ws["!ref"]) return;
+  const ref = XLSX.utils.decode_range(ws["!ref"]);
+  for (let C = ref.s.c; C <= ref.e.c; ++C) {
+    const cellAddress = XLSX.utils.encode_cell({ r: ref.s.r, c: C });
+    const cell = ws[cellAddress];
+    if (cell && cell.t === "s" && typeof cell.v === "string") {
+      cell.v = cell.v.trim();
+      if (cell.w) cell.w = cell.w.trim();
+    }
+  }
+}
+
 function renderCards(items) {
   cardsContainer.innerHTML = "";
-  items.forEach((item, index) => {
+
+  items.forEach((item) => {
+    // Ожидаемые поля из Excel:
+    // name, description, card_photo, photo2, photo3, photo4
     const name = item.name || "";
     const description = item.description || "";
-    const cardPhoto = item.card_photo || item.cardPhoto || "";
+
+    // card_photo строго из Excel (после trimHeaders заголовок должен быть card_photo)
+    const cardPhoto = item.card_photo || "";
+
+    // Массив всех фото: основное + дополнительные
     const photos = [
       cardPhoto,
       item.photo2 || "",
       item.photo3 || "",
       item.photo4 || ""
-    ].filter(Boolean);
+    ].filter((p) => !!p); // убираем пустые строки
 
     const card = document.createElement("div");
     card.className = "card-outer fade-in";
@@ -84,7 +110,9 @@ function renderCards(items) {
 
     const img = document.createElement("img");
     img.className = "card-image";
-    img.src = cardPhoto || "logo.png";
+
+    // Если cardPhoto пустой, только тогда показываем logo.png
+    img.src = cardPhoto ? cardPhoto : "logo.png";
     img.alt = name;
 
     imgWrapper.appendChild(img);
@@ -101,7 +129,7 @@ function renderCards(items) {
       openModal({
         name,
         description,
-        photos
+        photos: photos.length > 0 ? photos : [cardPhoto || "logo.png"]
       });
     });
 
@@ -112,14 +140,14 @@ function renderCards(items) {
 // Открытие модалки с плавной анимацией
 function openModal(item) {
   modalMainImage.src = item.photos[0] || "logo.png";
-  modalTitle.textContent = item.name;
-  modalDescription.textContent = item.description;
+  modalTitle.textContent = item.name || "";
+  modalDescription.textContent = item.description || "";
   modalGallery.innerHTML = "";
 
   item.photos.slice(1).forEach((src) => {
     const img = document.createElement("img");
     img.src = src;
-    img.alt = item.name;
+    img.alt = item.name || "";
     modalGallery.appendChild(img);
   });
 
