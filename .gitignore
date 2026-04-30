@@ -1,8 +1,4 @@
 # Игнорируем всё по умолчанию
-*
+
 bot.py
 # Но отслеживаем эти файлы и папки:
-!.gitignore
-!README.md
-!webapp/
-!flowers-data.json
