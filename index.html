@@ -1,49 +1,170 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8" />
-  <title>Гортензии Unica and Flowers</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <div id="preloader" class="screen-full">
-    <div class="welcome-text" id="welcomeText">Приветствуем, гость!</div>
-  </div>
+// Получаем данные пользователя из Telegram WebApp
+let tg = window.Telegram ? window.Telegram.WebApp : null;
+let usernameForGreeting = "гость";
 
-  <div id="app" class="app hidden">
-    <header class="app-header">
-      <img src="logo.png" alt="Логотип" class="logo" />
-      <div class="title-block">
-        <div class="shop-title">Гортензии Unica and Flowers</div>
-        <div class="shop-username">@unika_flowers</div>
-      </div>
-    </header>
+if (tg) {
+  tg.ready();
+  const initDataUnsafe = tg.initDataUnsafe || {};
+  const user = initDataUnsafe.user;
+  if (user && (user.first_name || user.username)) {
+    usernameForGreeting = user.first_name || "@" + user.username;
+  }
+  tg.expand();
+}
 
-    <main class="cards-container" id="cardsContainer">
-      <!-- Карточки товаров будут добавляться JS -->
-    </main>
+const welcomeText = document.getElementById("welcomeText");
+const preloader = document.getElementById("preloader");
+const app = document.getElementById("app");
+const cardsContainer = document.getElementById("cardsContainer");
+const contactButton = document.getElementById("contactButton");
 
-    <footer class="footer">
-      <button id="contactButton" class="contact-button">Написать для заказа</button>
-    </footer>
-  </div>
+// Модалка
+const modalOverlay = document.getElementById("modalOverlay");
+const modalClose = document.getElementById("modalClose");
+const modalMainImage = document.getElementById("modalMainImage");
+const modalTitle = document.getElementById("modalTitle");
+const modalDescription = document.getElementById("modalDescription");
+const modalGallery = document.getElementById("modalGallery");
 
-  <div id="modalOverlay" class="modal-overlay hidden">
-    <div class="modal">
-      <button class="modal-close" id="modalClose">✕</button>
-      <div class="modal-content">
-        <img id="modalMainImage" class="modal-main-image" src="" alt="" />
-        <h2 id="modalTitle" class="modal-title"></h2>
-        <p id="modalDescription" class="modal-description"></p>
-        <div id="modalGallery" class="modal-gallery"></div>
-        <a href="https://t.me/unika_flowers" target="_blank" class="modal-contact-link">@unika_flowers</a>
-      </div>
-    </div>
-  </div>
+welcomeText.textContent = `Приветствуем, ${usernameForGreeting}!`;
 
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="script.js"></script>
-</body>
-</html>
+// После небольшой паузы скрываем приветствие и показываем магазин
+setTimeout(() => {
+  preloader.classList.add("hidden");
+  app.classList.remove("hidden");
+  loadCatalog();
+}, 1300);
+
+// Кнопка "Написать для заказа"
+contactButton.addEventListener("click", () => {
+  if (tg) {
+    tg.openTelegramLink("https://t.me/unika_flowers");
+  } else {
+    window.open("https://t.me/unika_flowers", "_blank");
+  }
+});
+
+// Загрузка каталога из catalog.xlsx
+async function loadCatalog() {
+  try {
+    const response = await fetch("catalog.xlsx");
+    const arrayBuffer = await response.arrayBuffer();
+    const data = new Uint8Array(arrayBuffer);
+    const workbook = XLSX.read(data, { type: "array" });
+    const firstSheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[firstSheetName];
+
+    // Обрезаем пробелы у заголовков, чтобы "card_photo " стал "card_photo"
+    trimHeaders(worksheet);
+
+    const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+    renderCards(json);
+  } catch (e) {
+    console.error("Ошибка загрузки каталога:", e);
+  }
+}
+
+// Функция обрезки пробелов в заголовках (первая строка)
+function trimHeaders(ws) {
+  if (!ws || !ws["!ref"]) return;
+  const ref = XLSX.utils.decode_range(ws["!ref"]);
+  // r = ref.s.r — первая строка (заголовки)
+  for (let C = ref.s.c; C <= ref.e.c; ++C) {
+    const cellAddress = XLSX.utils.encode_cell({ r: ref.s.r, c: C });
+    const cell = ws[cellAddress];
+    if (cell && cell.t === "s" && typeof cell.v === "string") {
+      cell.v = cell.v.trim();
+      if (cell.w) cell.w = cell.w.trim();
+    }
+  }
+}
+
+function renderCards(items) {
+  cardsContainer.innerHTML = "";
+
+  items.forEach((item) => {
+    // Берём значения из полей, ожидая имена колонок:
+    // name, description, card_photo, photo2, photo3, photo4
+    const name = item.name || "";
+    const description = item.description || "";
+
+    // card_photo строго из Excel (после trimHeaders заголовок должен быть card_photo)
+    const cardPhoto = item.card_photo || "";
+
+    // Массив всех фото: основное + дополнительные
+    const photos = [
+      cardPhoto,
+      item.photo2 || "",
+      item.photo3 || "",
+      item.photo4 || ""
+    ].filter((p) => !!p); // убираем пустые строки
+
+    const card = document.createElement("div");
+    card.className = "card-outer fade-in";
+
+    const inner = document.createElement("div");
+    inner.className = "card-inner";
+
+    const imgWrapper = document.createElement("div");
+    imgWrapper.className = "card-image-wrapper";
+
+    const img = document.createElement("img");
+    img.className = "card-image";
+
+    // Если cardPhoto пустой, только тогда показываем logo.png
+    img.src = cardPhoto ? cardPhoto : "logo.png";
+    img.alt = name;
+
+    imgWrapper.appendChild(img);
+
+    const titleEl = document.createElement("div");
+    titleEl.className = "card-title";
+    titleEl.textContent = name;
+
+    inner.appendChild(imgWrapper);
+    inner.appendChild(titleEl);
+    card.appendChild(inner);
+
+    inner.addEventListener("click", () => {
+      openModal({
+        name,
+        description,
+        photos: photos.length > 0 ? photos : [cardPhoto || "logo.png"]
+      });
+    });
+
+    cardsContainer.appendChild(card);
+  });
+}
+
+// Открытие модалки с плавной анимацией
+function openModal(item) {
+  modalMainImage.src = item.photos[0] || "logo.png";
+  modalTitle.textContent = item.name || "";
+  modalDescription.textContent = item.description || "";
+  modalGallery.innerHTML = "";
+
+  item.photos.slice(1).forEach((src) => {
+    const img = document.createElement("img");
+    img.src = src;
+    img.alt = item.name || "";
+    modalGallery.appendChild(img);
+  });
+
+  modalOverlay.classList.remove("hidden");
+  modalOverlay.classList.add("fade-in");
+}
+
+function closeModal() {
+  modalOverlay.classList.add("hidden");
+}
+
+modalOverlay.addEventListener("click", (e) => {
+  if (e.target === modalOverlay) {
+    closeModal();
+  }
+});
+
+modalClose.addEventListener("click", () => {
+  closeModal();
+});
